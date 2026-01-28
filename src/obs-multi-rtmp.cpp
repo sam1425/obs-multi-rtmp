@@ -8,33 +8,18 @@
 #include "plugin-support.h"
 
 #include "output-config.h"
+#include <vector>
 
 #ifdef _WIN32
-#include <Windows.h>
+    #include <Windows.h>
+#else
 #endif
 
+
 #define ConfigSection "obs-multi-rtmp"
-
-static class GlobalServiceImpl : public GlobalService
-{
-public:
-    bool RunInUIThread(std::function<void()> task) override {
-        if (uiThread_ == nullptr)
-            return false;
-        QMetaObject::invokeMethod(uiThread_, [func = std::move(task)]() {
-            func();
-        });
-        return true;
-    }
-
-    QThread* uiThread_ = nullptr;
-} s_service;
-
-
-GlobalService& GetGlobalService() {
-    return s_service;
-}
-
+class MultiOutputWidget;                // forward declaration
+MultiOutputWidget* g_multiOutputWidget = nullptr;
+std::vector<PushWidget*> g_activePushWidgets;
 
 class MultiOutputWidget : public QWidget
 {
@@ -89,7 +74,7 @@ public:
             for (auto x : GetAllPushWidgets())
                 x->StopStreaming();
         });
-        
+
         // load config
         itemLayout_ = new QVBoxLayout(container_);
         LoadConfig();
@@ -109,9 +94,9 @@ public:
             innerLayout->addWidget(label2, 1, 0, 1, 1);
             auto btnFeed = new QPushButton(u8"支持", cr);
             innerLayout->addWidget(btnFeed, 1, 1, 1, 1);
-            
+
             QObject::connect(btnFeed, &QPushButton::clicked, [this]() {
-                const char redbagpng[] = 
+                const char redbagpng[] =
                     "iVBORw0KGgoAAAANSUhEUgAAAJgAAACXAQMAAADTWgC3AAAABlBMVEUAAAD///+l2Z/dAAAAAWJLR0Q"
                     "AiAUdSAAAAAlwSFlzAAAuIwAALiMBeKU/dgAAAWtJREFUSMe1lk2OgzAMhY1YZJkj5CbkYkggcTG4SY"
                     "6QZRaonmcHqs7PYtTaVVWSLxJu7JfnEP/+0H9ZIaKRA0aZz4QJJXuGQFsJO9HU104H1ihuTENl4IS12"
@@ -121,7 +106,7 @@ public:
                     "6Z5ZzMpOZrzvRElPC49Awx2LOi3k7aP+akhnL1AEMmPYphvtqeGD032TPt5zB2kQBq5Mgo9hrl7lceT"
                     "MQsEkD80YH1O9xRw9Vzn/cSQ6Y6EK1JH3nVxvss/GCf3L3/YF97Nxv6vuoIAwAAAABJRU5ErkJggg=="
                     ;
-                const char alipaypng[] = 
+                const char alipaypng[] =
                     "iVBORw0KGgoAAAANSUhEUgAAALsAAAC4AQMAAACByg+HAAAABlBMVEUAAAD///+l2Z/dAAAAAWJLR0Q"
                     "AiAUdSAAAAAlwSFlzAAAuIwAALiMBeKU/dgAAAVtJREFUWMPNmEGugzAMRM0qx+CmIbkpx8gK1zM2/U"
                     "L66w4RogqvC5dhxqbm/6/TfgEuwzr8PNwnjhP7pgYNxR1r97XPhUvxjUsPztj0hkJ7O7c4m/V3gCg36"
@@ -130,7 +115,7 @@ public:
                     "vCWfuiA+oqwaLH7Al8qL/aS4GA9I6zkz/bbFBSsHVKi++Dftg89YC53DDq8iLTJCSVgcq6DlMZGRkzm"
                     "pBtW2jRRH3flU3UIIacWBLduv0gxzwltGTaUtOFS4HVSJHnBp35jvAsbJnV/RbewWgtLVyAlODkjZSd"
                     "eMrkNfsIwX3awYfuLLEaGKg/OvlAz+wXVruSNSgAAAAAElFTkSuQmCC";
-                const char wechatpng[] = 
+                const char wechatpng[] =
                     "iVBORw0KGgoAAAANSUhEUgAAAK8AAACtAQMAAAD8lL09AAAABlBMVEUAAAD///+l2Z/dAAAAAWJLR0Q"
                     "AiAUdSAAAAAlwSFlzAAAuIwAALiMBeKU/dgAAAbpJREFUSMe9l0GugzAMRI26yDJHyE3Si1WiEhcrN8"
                     "kRWLJA8Z9xaNUv/eUfUIXgqQtn4pkY87+ubv+Cd8O1T3g2y4unzveqxXf3BniUeLKa3XcxrnZr+32zg"
@@ -188,19 +173,6 @@ public:
         fullLayout->addWidget(&scroll_, 0, 0);
     }
 
-    std::vector<PushWidget*> GetAllPushWidgets()
-    {
-        std::vector<PushWidget*> result;
-        for(auto& c : container_->children())
-        {
-            if (c->objectName() == "push-widget")
-            {
-                auto w = dynamic_cast<PushWidget*>(c);
-                result.push_back(w);
-            }
-        }
-        return result;
-    }
 
     void SaveConfig()
     {
@@ -222,6 +194,21 @@ public:
             }
         }
     }
+    std::vector<PushWidget*> GetAllPushWidgets()
+    {
+        std::vector<PushWidget*> result;
+        for(auto& c : container_->children())
+        {
+            if (c->objectName() == "push-widget")
+            {
+                auto w = dynamic_cast<PushWidget*>(c);
+                result.push_back(w);
+            }
+        }
+        g_activePushWidgets = result;
+        return result;
+    }
+
 
 private:
     QWidget* container_ = 0;
@@ -229,6 +216,54 @@ private:
     QVBoxLayout* itemLayout_ = 0;
     QVBoxLayout* layout_ = 0;
 };
+
+static class GlobalServiceImpl : public GlobalService
+{
+public:
+    bool RunInUIThread(std::function<void()> task) override {
+        if (uiThread_ == nullptr)
+            return false;
+        QMetaObject::invokeMethod(uiThread_, [func = std::move(task)]() {
+            func();
+        });
+        return true;
+    }
+
+    QThread* uiThread_ = nullptr;
+} s_service;
+
+
+GlobalService& GetGlobalService() {
+    return s_service;
+}
+
+#ifdef _WIN32
+    #define EXPORT_API __declspec(dllexport)
+#else
+    #define EXPORT_API __attribute__((visibility("default")))
+#endif
+
+
+extern "C" {
+    EXPORT_API void start_all_multi_rtmp() {
+        s_service.RunInUIThread([]() {
+            if (!g_multiOutputWidget) return;
+            for (auto x : g_multiOutputWidget->GetAllPushWidgets()) {
+                x->StartStreaming();
+            }
+        });
+    }
+
+    EXPORT_API void stop_all_multi_rtmp() {
+        s_service.RunInUIThread([]() {
+            if (!g_multiOutputWidget) return;
+            for (auto x : g_multiOutputWidget->GetAllPushWidgets()) {
+                x->StopStreaming();
+            }
+        });
+    }
+}
+
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("obs-multi-rtmp", "en-US")
@@ -245,6 +280,7 @@ bool obs_module_load()
 
     auto dock = new MultiOutputWidget();
     dock->setObjectName("obs-multi-rtmp-dock");
+    g_multiOutputWidget = dock;
     if (!obs_frontend_add_dock_by_id("obs-multi-rtmp-dock", obs_module_text("Title"), dock))
     {
         delete dock;
@@ -261,7 +297,7 @@ bool obs_module_load()
                 x->OnOBSEvent(event);
 
             if (event == obs_frontend_event::OBS_FRONTEND_EVENT_EXIT)
-            {   
+            {
                 dock->SaveConfig();
             }
             else if (event == obs_frontend_event::OBS_FRONTEND_EVENT_PROFILE_CHANGED)
@@ -273,6 +309,7 @@ bool obs_module_load()
 
     return true;
 }
+
 
 const char *obs_module_description(void)
 {

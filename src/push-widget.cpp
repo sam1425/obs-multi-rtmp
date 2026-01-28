@@ -33,7 +33,7 @@ public:
         auto thiz = static_cast<IOBSOutputEventHanlder*>(x);
         thiz->OnStopping();
     }
-   
+
     virtual void OnStopped(int) {}
     static void OnOutputStopped(void* x, calldata_t* param)
     {
@@ -126,9 +126,9 @@ class PushWidgetImpl : public PushWidget, public IOBSOutputEventHanlder
             blog(LOG_ERROR, TAG "Prepare output service before output object is created.");
             return false;
         }
-        
+
         ReleaseOutputService();
-        
+
         auto conf = obs_data_create_from_json(config_->serviceParam.dump().c_str());
 
         auto protocolInfo = GetProtocolInfos()->GetInfo(config_->protocol.c_str());
@@ -141,7 +141,7 @@ class PushWidgetImpl : public PushWidget, public IOBSOutputEventHanlder
 
         if (!conf)
             return false;
-        
+
         auto service = obs_service_create(service_id, "multi-output-service", conf, nullptr);
         obs_data_release(conf);
         if (!service)
@@ -224,7 +224,7 @@ class PushWidgetImpl : public PushWidget, public IOBSOutputEventHanlder
                 }
             }
         }
-        
+
         return true;
     }
 
@@ -346,7 +346,7 @@ class PushWidgetImpl : public PushWidget, public IOBSOutputEventHanlder
                     return GetAudioEncoder();
                 }
             }
-            
+
             using_main_audio_encoder_ = false;
             return enc.Get();
         }
@@ -358,7 +358,7 @@ class PushWidgetImpl : public PushWidget, public IOBSOutputEventHanlder
             blog(LOG_ERROR, TAG "Prepare output encoder before output object is created.");
             return false;
         }
-        
+
         ReleaseOutputEncoder();
 
         auto& global = GlobalMultiOutputConfig();
@@ -396,8 +396,8 @@ class PushWidgetImpl : public PushWidget, public IOBSOutputEventHanlder
             // needs to be started by the user (i.e. start streaming or start recording)
             ReleaseOutputEncoder();
 
-            auto msgbox = new QMessageBox(QMessageBox::Icon::Critical, 
-                obs_module_text("Notice.Title"), 
+            auto msgbox = new QMessageBox(QMessageBox::Icon::Critical,
+                obs_module_text("Notice.Title"),
                 obs_module_text("Notice.GetEncoder"),
                 QMessageBox::StandardButton::Ok,
                 this
@@ -430,7 +430,7 @@ class PushWidgetImpl : public PushWidget, public IOBSOutputEventHanlder
                 obs_output_set_video_encoder(output_, nullptr);
                 obs_encoder_release(venc);
             }
-            
+
             auto aenc = obs_output_get_audio_encoder(output_, 0);
             if (aenc)
             {
@@ -531,7 +531,7 @@ class PushWidgetImpl : public PushWidget, public IOBSOutputEventHanlder
                     return "0 bps";
                 }
             }();
-            
+
             msg_->setText((std::string(strDuration) + "  " + strBps + "  " + strFps).c_str());
         }
 
@@ -598,7 +598,7 @@ public:
 
         LoadConfig();
     }
-    
+
     ~PushWidgetImpl()
     {
         ReleaseOutput();
@@ -608,14 +608,14 @@ public:
     void StartStreaming() override {
         if (IsRunning())
             return;
-        
+
         // recreate output
         ReleaseOutput();
 
         if (output_ == nullptr)
         {
             obs_data* output_settings = obs_data_create_from_json(config_->outputParam.dump().c_str());
-            
+
             auto protocolInfo = GetProtocolInfos()->GetInfo(config_->protocol.c_str());
             assert(protocolInfo);
             if (!protocolInfo) {
@@ -675,7 +675,7 @@ public:
     void StopStreaming() override {
         if (!IsRunning())
             return;
-        
+
         bool useForce = false;
         if (isUseDelay_) {
             auto res = QMessageBox(QMessageBox::Icon::Information,
@@ -693,7 +693,7 @@ public:
         else
             obs_output_force_stop(output_);
     }
-   
+
     void OnOBSEvent(obs_frontend_event ev) override
     {
         if (ev == obs_frontend_event::OBS_FRONTEND_EVENT_EXIT
