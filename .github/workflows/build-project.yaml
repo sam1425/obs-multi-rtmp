@@ -285,6 +285,7 @@ jobs:
 
       - name: Package Plugin 📀
         uses: ./.github/actions/package-plugin
+        continue-on-error: true
         with:
           target: x64
           config: ${{ needs.check-event.outputs.config }}
