@@ -293,6 +293,10 @@ bool obs_module_load()
         [](enum obs_frontend_event event, void *private_data) {
             auto dock = static_cast<MultiOutputWidget*>(private_data);
 
+            if (event == obs_frontend_event::OBS_FRONTEND_EVENT_STREAMING_STARTING) {
+                start_all_multi_rtmp();
+            }
+
             for(auto x: dock->GetAllPushWidgets())
                 x->OnOBSEvent(event);
 
