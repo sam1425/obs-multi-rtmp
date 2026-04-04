@@ -178,16 +178,27 @@ function(_check_dependencies)
 
     if(NOT EXISTS "${dependencies_dir}/${file}")
       message(STATUS "Downloading ${url}")
-      file(DOWNLOAD "${url}" "${dependencies_dir}/${file}" STATUS download_status EXPECTED_HASH SHA256=${hash})
+      file(
+        DOWNLOAD "${url}" "${dependencies_dir}/${file}"
+        STATUS download_status
+        HTTPHEADER "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        SHOW_PROGRESS
+      )
 
       list(GET download_status 0 error_code)
       list(GET download_status 1 error_message)
       if(error_code GREATER 0)
-        message(STATUS "Downloading ${url} - Failure")
-        message(FATAL_ERROR "Unable to download ${url}, failed with error: ${error_message}")
+        message(STATUS "Downloading ${url} - Failure (Error ${error_code}: ${error_message})")
         file(REMOVE "${dependencies_dir}/${file}")
+        message(FATAL_ERROR "Unable to download ${url}, failed with error: ${error_message}")
       else()
         message(STATUS "Downloading ${url} - done")
+      endif()
+
+      file(SHA256 "${dependencies_dir}/${file}" _downloaded_hash)
+      if(NOT _downloaded_hash STREQUAL hash)
+        file(REMOVE "${dependencies_dir}/${file}")
+        message(FATAL_ERROR "Hash mismatch for ${url}\nExpected: ${hash}\nActual:   ${_downloaded_hash}")
       endif()
     endif()
 
